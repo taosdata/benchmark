@@ -87,10 +87,12 @@ public class TDengineProducer {
                             payloadBuffer.add(payload);
                             if (tsBuffer.size() == config.maxBatchSize) {
                                 flushStmt(pst, tsBuffer, payloadBuffer);
+                                pst.setTableName(tableName.toLowerCase());
                             }
                         } else {
                             if (tsBuffer.size() > 0) {
                                 flushStmt(pst, tsBuffer, payloadBuffer);
+                                pst.setTableName(tableName.toLowerCase());
                             } else {
                                 Thread.sleep(3);
                             }
@@ -103,6 +105,7 @@ public class TDengineProducer {
                 }
                 if (tsBuffer.size() > 0) {
                     flushStmt(pst, tsBuffer, payloadBuffer);
+                    pst.setTableName(tableName.toLowerCase());
                 }
 
             }
