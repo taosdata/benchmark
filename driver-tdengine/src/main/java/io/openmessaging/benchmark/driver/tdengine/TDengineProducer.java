@@ -88,7 +88,11 @@ public class TDengineProducer {
                                 flushStmt(pst, tsBuffer, payloadBuffer);
                             }
                         } else {
-                            Thread.sleep(3);
+                            if (tsBuffer.size() > 0) {
+                                flushStmt(pst, tsBuffer, payloadBuffer);
+                            } else {
+                                Thread.sleep(3);
+                            }
                         }
                     } catch (InterruptedException e) {
                         throw new RuntimeException(e);
