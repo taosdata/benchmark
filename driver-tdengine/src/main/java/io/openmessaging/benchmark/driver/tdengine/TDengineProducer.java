@@ -42,7 +42,7 @@ public class TDengineProducer {
         this.config = config;
         this.startNano = System.nanoTime();
         this.startTs = System.currentTimeMillis() * 1000000;
-        this.workThread = new Thread(this::runStmt);
+        this.workThread = new Thread(this::run);
         workThread.start();
     }
 
