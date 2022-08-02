@@ -17,7 +17,10 @@ import com.taosdata.jdbc.TSDBPreparedStatement;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -42,7 +45,11 @@ public class TDengineProducer {
         this.config = config;
         this.startNano = System.nanoTime();
         this.startTs = System.currentTimeMillis() * 1000000;
-        this.workThread = new Thread(this::run);
+        if (config.useStmt) {
+            this.workThread = new Thread(this::runStmt);
+        } else {
+            this.workThread = new Thread(this::run);
+        }
         workThread.start();
     }
 
@@ -63,13 +70,13 @@ public class TDengineProducer {
             long tableId = System.nanoTime() + new Random().nextLong();
             tableId = Math.abs(tableId);
             String stableName = topic.replaceAll("-", "_");
-            String tableName = stableName + "_" + tableId;
+            String tableName = (stableName + "_" + tableId).toLowerCase();
             String q = "create table " + tableName + " using " + stableName + " tags(" + tableId + ")";
             log.info(q);
             stmt.executeUpdate(q);
             ArrayList<Long> tsBuffer = new ArrayList<>();
             ArrayList<String> payloadBuffer = new ArrayList<>();
-            String psql = "INSERT INTO ? "  + "VALUES(?, ?)";
+            String psql = "INSERT INTO ? " + "VALUES(?, ?)";
             try (TSDBPreparedStatement pst = (TSDBPreparedStatement) conn.prepareStatement(psql)) {
                 log.info("setTableName: {}", tableName);
                 pst.setTableName(tableName);
@@ -85,11 +92,11 @@ public class TDengineProducer {
                             tsBuffer.add(ts);
                             payloadBuffer.add(payload);
                             if (tsBuffer.size() == config.maxBatchSize) {
-                                flushStmt(pst, tsBuffer, payloadBuffer);
+                                flushStmt(pst, tsBuffer, payloadBuffer, tableName);
                             }
                         } else {
                             if (tsBuffer.size() > 0) {
-                                flushStmt(pst, tsBuffer, payloadBuffer);
+                                flushStmt(pst, tsBuffer, payloadBuffer, tableName);
                             } else {
                                 Thread.sleep(3);
                             }
@@ -101,7 +108,7 @@ public class TDengineProducer {
                     }
                 }
                 if (tsBuffer.size() > 0) {
-                    flushStmt(pst, tsBuffer, payloadBuffer);
+                    flushStmt(pst, tsBuffer, payloadBuffer, tableName);
                 }
 
             }
@@ -116,11 +123,13 @@ public class TDengineProducer {
         }
     }
 
-    public void flushStmt(TSDBPreparedStatement pst, ArrayList<Long> tsBuffer, ArrayList<String> payloadBuffer) throws SQLException {
+    public void flushStmt(TSDBPreparedStatement pst, ArrayList<Long> tsBuffer,
+                          ArrayList<String> payloadBuffer, String tableName) throws SQLException {
         pst.setTimestamp(0, tsBuffer);
         pst.setString(1, payloadBuffer, config.varcharLen);
         pst.columnDataAddBatch();
         pst.columnDataExecuteBatch();
+        pst.setTableName(tableName);
         tsBuffer.clear();
         payloadBuffer.clear();
     }
