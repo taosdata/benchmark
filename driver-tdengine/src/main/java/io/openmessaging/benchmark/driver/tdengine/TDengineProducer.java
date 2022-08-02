@@ -105,7 +105,7 @@ public class TDengineProducer {
                 }
 
             }
-        } catch (SQLException e) {
+        } catch (Exception e) {
             throw new RuntimeException(e);
         } finally {
             try {
