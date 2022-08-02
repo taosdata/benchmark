@@ -34,4 +34,5 @@ public class Config {
     public int varcharLen;
     public String jdbcURL;
     public int replica;
+    public boolean useStmt;
 }
