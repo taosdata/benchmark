@@ -20,6 +20,7 @@ import org.slf4j.LoggerFactory;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Random;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
@@ -42,7 +43,7 @@ public class TDengineProducer {
         this.config = config;
         this.startNano = System.nanoTime();
         this.startTs = System.currentTimeMillis() * 1000000;
-        this.workThread = new Thread(this::run);
+        this.workThread = new Thread(this::runStmt);
         workThread.start();
     }
 
@@ -64,7 +65,7 @@ public class TDengineProducer {
             tableId = Math.abs(tableId);
             String stableName = topic.replaceAll("-", "_");
             String tableName = stableName + "_" + tableId;
-            String q = "create table " + tableName + " using " + stableName + " tags(" + tableId + ")";
+            String q = "create table " + tableName.toLowerCase() + " using " + stableName + " tags(" + tableId + ")";
             log.info(q);
             stmt.executeUpdate(q);
             ArrayList<Long> tsBuffer = new ArrayList<>();
@@ -72,7 +73,7 @@ public class TDengineProducer {
             String psql = "INSERT INTO ? "  + "VALUES(?, ?)";
             try (TSDBPreparedStatement pst = (TSDBPreparedStatement) conn.prepareStatement(psql)) {
                 log.info("setTableName: {}", tableName);
-                pst.setTableName(tableName);
+                pst.setTableName(tableName.toLowerCase());
                 while (!closing) {
                     try {
                         Object[] item = queue.poll();
