@@ -97,7 +97,6 @@ public class TDengineProducer {
                         } else {
                             if (tsBuffer.size() > 0) {
                                 flushStmt(pst, tsBuffer, payloadBuffer, tableName);
-                                pst.setTableName(tableName.toLowerCase());
                             } else {
                                 Thread.sleep(3);
                             }
@@ -110,7 +109,6 @@ public class TDengineProducer {
                 }
                 if (tsBuffer.size() > 0) {
                     flushStmt(pst, tsBuffer, payloadBuffer, tableName);
-                    pst.setTableName(tableName.toLowerCase());
                 }
 
             }
