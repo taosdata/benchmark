@@ -57,15 +57,18 @@ public class TDengineBenchmarkConsumer implements BenchmarkConsumer {
             config.setProperty("enable.auto.commit", "true");
             config.setProperty("group.id", group);
             config.setProperty("value.deserializer", ValueDecoder.class.getName());
+            int rows = 0;
             try (TaosConsumer<Record> consumer = new TaosConsumer<>(config)) {
                 String topicName = '`' + topic + '`';
                 consumer.subscribe(Collections.singletonList(topicName));
                 while (!closing) {
                     ConsumerRecords<Record> consumerRecords = consumer.poll(Duration.ofMillis(5000));
                     for (Record record : consumerRecords) {
+                        rows++;
                         callback.messageReceived(record.payload, record.ts / 1000000);
                     }
                 }
+                log.info("====consumer rows: " + rows);
             } catch (Exception e) {
                 log.debug("Error {} {}", topic, e.getMessage());
                 e.printStackTrace();

@@ -80,6 +80,7 @@ public class TDengineProducer {
             try (TSDBPreparedStatement pst = (TSDBPreparedStatement) conn.prepareStatement(psql)) {
                 log.info("setTableName: {}", tableName);
                 pst.setTableName(tableName);
+                int rows = 0;
                 while (!closing) {
                     try {
                         Object[] item = queue.poll();
@@ -91,6 +92,7 @@ public class TDengineProducer {
                             future.complete(null);
                             tsBuffer.add(ts);
                             payloadBuffer.add(payload);
+                            rows++;
                             if (tsBuffer.size() == config.maxBatchSize) {
                                 flushStmt(pst, tsBuffer, payloadBuffer, tableName);
                             }
@@ -110,7 +112,7 @@ public class TDengineProducer {
                 if (tsBuffer.size() > 0) {
                     flushStmt(pst, tsBuffer, payloadBuffer, tableName);
                 }
-
+                log.info("====producer rows: " + rows);
             }
         } catch (Exception e) {
             throw new RuntimeException(e);
@@ -150,7 +152,7 @@ public class TDengineProducer {
             log.info(q);
             stmt.executeUpdate(q);
             List<String> values = new ArrayList<>();
-
+            int rows = 0;
             while (!closing) {
                 try {
                     Object[] item = queue.poll();
@@ -161,6 +163,7 @@ public class TDengineProducer {
                         // mark message sent successfully
                         future.complete(null);
                         values.add(" (" + ts + ",'" + payload + "')");
+                        rows++;
                         if (values.size() == config.maxBatchSize) {
                             flush(stmt, tableName, values);
                         }
@@ -179,6 +182,7 @@ public class TDengineProducer {
             if (values.size() > 0) {
                 flush(stmt, tableName, values);
             }
+            log.info("====producer rows: " + rows);
         } catch (SQLException e) {
             throw new RuntimeException(e);
         } finally {
