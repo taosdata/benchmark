@@ -36,6 +36,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class TDengineBenchmarkDriver implements BenchmarkDriver {
     private boolean initialized = false;
+    private List<String> createdTopics = new ArrayList<>();
     private AtomicInteger createdProducers = new AtomicInteger(-1);
     // SubTables belong to different VGroups;
     private List<String> prepSubTables = new ArrayList<>();
@@ -106,6 +107,7 @@ public class TDengineBenchmarkDriver implements BenchmarkDriver {
             createSubTables(stmt, stable, partitions);
             setPrepSubTables(stmt);
             q = "create topic `" + topic + "` as stable " + stable;
+            createdTopics.add(topic);
             log.info(q);
             stmt.executeUpdate(q);
             future.complete(null);
@@ -116,7 +118,7 @@ public class TDengineBenchmarkDriver implements BenchmarkDriver {
     }
 
     private void setPrepSubTables(Statement stmt) throws SQLException {
-        String q = "select first(table_name), vgroup_id, db_name from information_schema.ins_tables group by vgroup_id, db_name having db_name='" + config.database+ "'";
+        String q = "select first(table_name), vgroup_id, db_name from information_schema.ins_tables group by vgroup_id, db_name having db_name='" + config.database + "'";
         log.info(q);
         ResultSet rs = stmt.executeQuery(q);
         while (rs.next()) {
@@ -127,6 +129,7 @@ public class TDengineBenchmarkDriver implements BenchmarkDriver {
     /**
      * Create SubTables. The number of SubTables creates is 10 * (number of partitions).
      * But only one SubTable will be used for each partition.
+     *
      * @param stmt
      * @param stable
      * @param partitions
@@ -156,6 +159,13 @@ public class TDengineBenchmarkDriver implements BenchmarkDriver {
 
     @Override
     public void close() throws Exception {
+        try (Statement stmt = conn.createStatement()) {
+            for (String topic : createdTopics) {
+                String q = "drop topic " + topic;
+                log.info(q);
+                stmt.executeUpdate(q);
+            }
+        }
         if (conn != null) {
             conn.close();
         }

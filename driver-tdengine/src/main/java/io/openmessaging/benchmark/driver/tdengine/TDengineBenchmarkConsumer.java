@@ -69,6 +69,7 @@ public class TDengineBenchmarkConsumer implements BenchmarkConsumer {
                     }
                 }
                 log.info("====consumer rows: " + rows);
+                consumer.unsubscribe();
             } catch (Exception e) {
                 log.debug("Error {} {}", topic, e.getMessage());
                 e.printStackTrace();
