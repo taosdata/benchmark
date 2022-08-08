@@ -161,7 +161,7 @@ public class TDengineBenchmarkDriver implements BenchmarkDriver {
     public void close() throws Exception {
         try (Statement stmt = conn.createStatement()) {
             for (String topic : createdTopics) {
-                String q = "drop topic " + topic;
+                String q = "drop topic `" + topic + "`";
                 log.info(q);
                 stmt.executeUpdate(q);
             }
