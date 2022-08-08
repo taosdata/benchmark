@@ -139,13 +139,6 @@ public class TDengineProducer {
             conn = DriverManager.getConnection(jdbcUrl);
             stmt = conn.createStatement();
             stmt.executeUpdate("use " + config.database);
-            long tableId = System.nanoTime() + new Random().nextLong();
-            tableId = Math.abs(tableId);
-            String stableName = topic.replaceAll("-", "_");
-            String tableName = stableName + "_" + tableId;
-            String q = "create table " + tableName + " using " + stableName + " tags(" + tableId + ")";
-            log.info(q);
-            stmt.executeUpdate(q);
             List<String> values = new ArrayList<>();
             int rows = 0;
             while (!closing) {

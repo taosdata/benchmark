@@ -116,7 +116,7 @@ public class TDengineBenchmarkDriver implements BenchmarkDriver {
     }
 
     private void setPrepSubTables(Statement stmt) throws SQLException {
-        String q = "select first(table_name), vgroup_id, db_name from ins_tables group by vgroup_id, db_name having db_name='" + config.database+ "'";
+        String q = "select first(table_name), vgroup_id, db_name from information_schema.ins_tables group by vgroup_id, db_name having db_name='" + config.database+ "'";
         log.info(q);
         ResultSet rs = stmt.executeQuery(q);
         while (rs.next()) {
