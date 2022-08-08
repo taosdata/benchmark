@@ -75,7 +75,7 @@ public class TDengineProducer {
             try (TSDBPreparedStatement pst = (TSDBPreparedStatement) conn.prepareStatement(psql)) {
                 log.info("setTableName: {}", tableName);
                 pst.setTableName(tableName);
-                int rows = 0;
+                long rows = 0;
                 while (!closing) {
                     try {
                         Object[] item = queue.poll();

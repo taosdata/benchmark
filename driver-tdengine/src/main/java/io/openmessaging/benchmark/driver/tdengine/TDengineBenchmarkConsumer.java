@@ -53,11 +53,11 @@ public class TDengineBenchmarkConsumer implements BenchmarkConsumer {
         this.consumerTask = this.executor.submit(() -> {
             callback.messageReceived(new byte[10], System.currentTimeMillis());
             Properties config = new Properties();
-            config.setProperty("msg.with.table.name", "true");
-            config.setProperty("enable.auto.commit", "true");
+            //config.setProperty("msg.with.table.name", "true");
+            //config.setProperty("enable.auto.commit", "true");
             config.setProperty("group.id", group);
             config.setProperty("value.deserializer", ValueDecoder.class.getName());
-            int rows = 0;
+            long rows = 0;
             try (TaosConsumer<Record> consumer = new TaosConsumer<>(config)) {
                 String topicName = '`' + topic + '`';
                 consumer.subscribe(Collections.singletonList(topicName));
