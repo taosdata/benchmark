@@ -86,7 +86,7 @@ public class TDengineBenchmarkDriver implements BenchmarkDriver {
                 + " wal_retention_period " + config.walRetentionPeriod
                 + " wal_retention_size " + config.walRetentionSize
                 + " wal_roll_period " + config.walRollPeriod
-                + " wal_seg_size " + config.walSegSize
+                + " wal_segment_size " + config.walSegSize
                 + " strict '" + config.strict + "'";
         log.info(q);
         stmt.executeUpdate(q);
