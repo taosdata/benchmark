@@ -35,14 +35,16 @@ public class TDengineProducer {
     private ArrayBlockingQueue<Object[]> queue = new ArrayBlockingQueue<>(500000);
     private Thread workThread;
     private String topic;
+    private String tableName;
     private boolean closing = false;
     private Config config;
     private long startNano;
     private long startTs;
 
-    public TDengineProducer(String topic, Config config) {
+    public TDengineProducer(String topic, String tableName, Config config) {
         this.topic = topic;
         this.config = config;
+        this.tableName = tableName;
         this.startNano = System.nanoTime();
         this.startTs = System.currentTimeMillis() * 1000000;
         if (config.useStmt) {
@@ -67,13 +69,6 @@ public class TDengineProducer {
             conn = DriverManager.getConnection(jdbcUrl);
             stmt = conn.createStatement();
             stmt.executeUpdate("use " + config.database);
-            long tableId = System.nanoTime() + new Random().nextLong();
-            tableId = Math.abs(tableId);
-            String stableName = topic.replaceAll("-", "_");
-            String tableName = (stableName + "_" + tableId).toLowerCase();
-            String q = "create table " + tableName + " using " + stableName + " tags(" + tableId + ")";
-            log.info(q);
-            stmt.executeUpdate(q);
             ArrayList<Long> tsBuffer = new ArrayList<>();
             ArrayList<String> payloadBuffer = new ArrayList<>();
             String psql = "INSERT INTO ? " + "VALUES(?, ?)";

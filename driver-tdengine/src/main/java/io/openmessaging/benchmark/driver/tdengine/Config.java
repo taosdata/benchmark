@@ -35,4 +35,19 @@ public class Config {
     public String jdbcURL;
     public int replica;
     public boolean useStmt;
+    public int walLevel;
+    public int walFsyncPeriod;
+    public int walRetentionPeriod;
+    public int walRetentionSize;
+    public int walRollPeriod;
+    public int walSegSize;
+    public String strict;
 }
+
+//        wal_level: 1
+//        wal_fsync_period: 3000
+//        wal_retention_period: 0
+//        wal_retention_size: 0
+//        wal_roll_period: 0
+//        wal_seg_size: 0
+//        strict: off

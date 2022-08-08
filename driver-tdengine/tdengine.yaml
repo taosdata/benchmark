@@ -21,3 +21,10 @@ varcharLen: 1024
 replica: 1
 jdbcURL: "jdbc:TAOS://localhost:6030?user=root&password=taosdata"
 useStmt: true
+walLevel: 1
+walFsyncPeriod: 3000
+walRetentionPeriod: 0
+walRetentionSize: 0
+walRollPeriod: 0
+walSegSize: 0
+strict: off
