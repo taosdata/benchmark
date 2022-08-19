@@ -26,23 +26,9 @@
  */
 package io.openmessaging.benchmark;
 
-import io.openmessaging.benchmark.utils.RandomGenerator;
-import java.io.IOException;
-import java.text.DecimalFormat;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Random;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
-
-import org.apache.commons.lang.ArrayUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import io.netty.util.concurrent.DefaultThreadFactory;
 import io.openmessaging.benchmark.utils.PaddingDecimalFormat;
+import io.openmessaging.benchmark.utils.RandomGenerator;
 import io.openmessaging.benchmark.utils.Timer;
 import io.openmessaging.benchmark.utils.payload.FilePayloadReader;
 import io.openmessaging.benchmark.utils.payload.PayloadReader;
@@ -54,6 +40,28 @@ import io.openmessaging.benchmark.worker.commands.PeriodStats;
 import io.openmessaging.benchmark.worker.commands.ProducerWorkAssignment;
 import io.openmessaging.benchmark.worker.commands.TopicSubscription;
 import io.openmessaging.benchmark.worker.commands.TopicsInfo;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.IOException;
+import java.text.DecimalFormat;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Random;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import org.apache.commons.lang.ArrayUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+
+
+
 
 public class WorkloadGenerator implements AutoCloseable {
 
@@ -68,6 +76,7 @@ public class WorkloadGenerator implements AutoCloseable {
     private volatile boolean needToWaitForBacklogDraining = false;
 
     private volatile double targetPublishRate;
+    private static ArrayList<Long> TimeDelay = new ArrayList<Long>();
 
     public WorkloadGenerator(String driverName, Workload workload, Worker worker) {
         this.driverName = driverName;
@@ -80,6 +89,8 @@ public class WorkloadGenerator implements AutoCloseable {
     }
 
     public TestResult run() throws Exception {
+        Process execProducer = Runtime.getRuntime().exec(new String[]{"sh","-c","rm -rf /tmp/omb/producer//*"});
+        Process execConsumer = Runtime.getRuntime().exec(new String[]{"sh","-c","rm -rf /tmp/omb/consumer//*"});
         Timer timer = new Timer();
         List<String> topics = worker.createTopics(new TopicsInfo(workload.topics, workload.partitionsPerTopic));
         log.info("Created {} topics in {} ms", topics.size(), timer.elapsedMillis());
@@ -154,9 +165,80 @@ public class WorkloadGenerator implements AutoCloseable {
         runCompleted = true;
 
         worker.stopAll();
+        ArrayList<Long> value = new ArrayList<Long>(); //用来存放所有线程延时时间的数组
+        Map<String, ArrayList<Long>> map = getFilesDatas("/tmp/omb/producer");
+        for(String key : map.keySet()){
+		    value = map.get(key);
+		}
+        //将value升序排序
+        value.sort(Comparator.naturalOrder());
+        Long[] avgValue = new Long[value.size()];
+        value.toArray(avgValue);
+        //p50,p90,p99,p99.9,p99.99,max
+        log.info("Insert TimeDelay (ms) -----avg: {} 50%: {} | 95%: {} | 99%: {} | 99.9%: {} | 99.99%: {} | Max: {}",
+        String.format("%.2f",findAverageWithoutUsingStream(avgValue)* 1E-6).toString(),
+        String.format("%.2f",percentileOfTimeDelay(value,0.5) * 1E-6).toString(),
+        String.format("%.2f",percentileOfTimeDelay(value,0.95) * 1E-6).toString(),
+        String.format("%.2f",percentileOfTimeDelay(value,0.99) * 1E-6).toString(),
+        String.format("%.2f",percentileOfTimeDelay(value,0.999) * 1E-6).toString(),
+        String.format("%.2f",percentileOfTimeDelay(value,0.9999) * 1E-6).toString(),
+        String.format("%.2f",percentileOfTimeDelay(value,1) * 1E-6).toString());
         return result;
     }
+    public double percentileOfTimeDelay(ArrayList<Long> data,double p){
+        int n = data.size();
+        double px = p * (n-1);
+        Long[] Array = (Long[])data.toArray(new Long[n]);
+        int i = (int)Math.floor(px);
+        double g = px -i;
+        if(g==0){
+            return (int)Math.ceil(Array[i]);
+        }else{
+            return (int)Math.ceil((1-g) * Array[i] + g*Array[i+1]);
+        }
 
+    }
+    public static long findSumWithoutUsingStream(Long[] avgValue) {
+        long sum = 0;
+        for (Long value : avgValue) {
+            sum += value;
+        }
+        return sum;
+    }
+    
+    public static double findAverageWithoutUsingStream(Long[] avgValue) {
+        long sum = findSumWithoutUsingStream(avgValue);
+        return (double) sum / avgValue.length;
+    }
+
+    public static Map<String, ArrayList<Long>> getFilesDatas(String filePath){
+		Map<String, ArrayList<Long>> files = new HashMap<>();
+		File file = new File(filePath); 
+		String[] fileNameLists = file.list(); 
+		File[] filePathLists = file.listFiles(); 
+		for(int i=0;i<filePathLists.length;i++){
+			if(filePathLists[i].isFile()){
+				try {
+					ArrayList<Long> fileDatas = readFile(filePathLists[i]);
+					files.put(fileNameLists[i], fileDatas);
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}
+		}
+		return files;
+	}
+    private static ArrayList<Long> readFile(File path) throws IOException{
+		BufferedReader br = new BufferedReader(new FileReader(path));
+		String line = null;
+	    while ((line = br.readLine()) != null) {
+            
+		    TimeDelay.add(Long.valueOf(line).longValue());
+	    }
+		br.close();
+        return TimeDelay;
+		
+	}
     private void ensureTopicsAreReady() throws IOException {
         log.info("Waiting for consumers to be ready");
         // This is work around the fact that there's no way to have a consumer ready in Kafka without first publishing
