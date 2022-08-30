@@ -89,6 +89,8 @@ public class WorkloadGenerator implements AutoCloseable {
     }
 
     public TestResult run() throws Exception {
+        Process execProducer1 = Runtime.getRuntime().exec(new String[]{"sh","-c","mkdir -p /tmp/omb/producer"});
+        Process execConsumer1 = Runtime.getRuntime().exec(new String[]{"sh","-c","mkdir -p /tmp/omb/consumer"});
         Process execProducer = Runtime.getRuntime().exec(new String[]{"sh","-c","rm -rf /tmp/omb/producer//*"});
         Process execConsumer = Runtime.getRuntime().exec(new String[]{"sh","-c","rm -rf /tmp/omb/consumer//*"});
         Timer timer = new Timer();
