@@ -106,7 +106,7 @@ public class TDengineBenchmarkDriver implements BenchmarkDriver {
             stmt.executeUpdate(q);
             createSubTables(stmt, stable, partitions);
             setPrepSubTables(stmt);
-            q = "create topic `" + topic + "` as stable " + stable;
+            q = "create topic `" + topic + "` as select ts, payload from " + stable;
             createdTopics.add(topic);
             log.info(q);
             stmt.executeUpdate(q);
