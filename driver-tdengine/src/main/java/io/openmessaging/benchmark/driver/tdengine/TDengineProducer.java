@@ -14,19 +14,26 @@
 package io.openmessaging.benchmark.driver.tdengine;
 
 import com.taosdata.jdbc.TSDBPreparedStatement;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+
+
+
+
 
 
 public class TDengineProducer {
@@ -40,6 +47,8 @@ public class TDengineProducer {
     private Config config;
     private long startNano;
     private long startTs;
+    // public ArrayList<Long> timeDelay = new ArrayList<Long>();
+    public Long threadID;
 
     public TDengineProducer(String topic, String tableName, Config config) {
         this.topic = topic;
@@ -47,10 +56,27 @@ public class TDengineProducer {
         this.tableName = tableName;
         this.startNano = System.nanoTime();
         this.startTs = System.currentTimeMillis() * 1000000;
+        
         if (config.useStmt) {
-            this.workThread = new Thread(this::runStmt);
+            this.workThread = new Thread(() -> {
+                try {
+                    runStmt();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            });
+            threadID = workThread.getId();
+            // System.out.println("threadID=====" + threadID);
         } else {
-            this.workThread = new Thread(this::run);
+            this.workThread = new Thread(() -> {
+                try {
+                    run();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            });
+            threadID = workThread.getId();
+            // System.out.println("threadID=====" + threadID);
         }
         workThread.start();
     }
@@ -61,9 +87,12 @@ public class TDengineProducer {
         return queue.offer(new Object[]{ts, new String(payload), future}, 10, TimeUnit.MILLISECONDS);
     }
 
-    public void runStmt() {
+
+
+    public void runStmt() throws IOException{
         Connection conn = null;
         Statement stmt = null;
+        ArrayList<Long> timeDelay = new ArrayList<Long>();
         try {
             String jdbcUrl = config.jdbcURL;
             conn = DriverManager.getConnection(jdbcUrl);
@@ -76,6 +105,7 @@ public class TDengineProducer {
                 log.info("setTableName: {}", tableName);
                 pst.setTableName(tableName);
                 long rows = 0;
+                long startTime = 0;
                 while (!closing) {
                     try {
                         Object[] item = queue.poll();
@@ -87,16 +117,25 @@ public class TDengineProducer {
                             future.complete(null);
                             tsBuffer.add(ts);
                             payloadBuffer.add(payload);
+                            if (startTime == 0) {
+                                startTime = System.nanoTime(); 
+                            }
                             rows++;
-                            if (tsBuffer.size() == config.maxBatchSize) {
+                            if (tsBuffer.size() == config.maxBatchSize) {                                
                                 flushStmt(pst, tsBuffer, payloadBuffer, tableName);
+                                Long endTime = System.nanoTime();
+                                timeDelay.add(endTime - startTime);
+                                startTime = 0;
                             }
                         } else {
-                            if (tsBuffer.size() > 0) {
+                            if (tsBuffer.size() > 0) {                                
                                 flushStmt(pst, tsBuffer, payloadBuffer, tableName);
+                                Long endTime = System.nanoTime();
+                                timeDelay.add(endTime - startTime);
+                                startTime = 0;
                             } else {
                                 Thread.sleep(3);
-                            }
+                            }                        
                         }
                     } catch (InterruptedException e) {
                         throw new RuntimeException(e);
@@ -106,6 +145,9 @@ public class TDengineProducer {
                 }
                 if (tsBuffer.size() > 0) {
                     flushStmt(pst, tsBuffer, payloadBuffer, tableName);
+                    Long endTime = System.nanoTime();
+                    timeDelay.add(endTime - startTime);
+                    startTime = 0;
                 }
                 log.info("====producer rows: " + rows);
             }
@@ -113,11 +155,25 @@ public class TDengineProducer {
             throw new RuntimeException(e);
         } finally {
             try {
+                
                 stmt.close();
                 conn.close();
+
+                
             } catch (SQLException e) {
             }
         }
+        String filename = String.format("/tmp/omb/producer/%s.txt",threadID.toString());
+        File file = new File(filename);
+        FileWriter writer = new FileWriter(file);
+        BufferedWriter bw = new BufferedWriter(writer);
+        for(int i=0;i<timeDelay.size();i++){
+            String line = timeDelay.get(i).toString();
+            bw.write(line);
+            bw.newLine();
+        }
+        bw.close();
+        
     }
 
     public void flushStmt(TSDBPreparedStatement pst, ArrayList<Long> tsBuffer,
@@ -131,9 +187,10 @@ public class TDengineProducer {
         payloadBuffer.clear();
     }
 
-    public void run() {
+    public void run() throws IOException {
         Connection conn = null;
         Statement stmt = null;
+        ArrayList<Long> timeDelay = new ArrayList<Long>();
         try {
             String jdbcUrl = config.jdbcURL;
             conn = DriverManager.getConnection(jdbcUrl);
@@ -141,6 +198,7 @@ public class TDengineProducer {
             stmt.executeUpdate("use " + config.database);
             List<String> values = new ArrayList<>();
             int rows = 0;
+            long startTime = 0;
             while (!closing) {
                 try {
                     Object[] item = queue.poll();
@@ -151,13 +209,22 @@ public class TDengineProducer {
                         // mark message sent successfully
                         future.complete(null);
                         values.add(" (" + ts + ",'" + payload + "')");
+                        if (startTime == 0) {
+                            startTime = System.nanoTime();
+                        }
                         rows++;
-                        if (values.size() == config.maxBatchSize) {
+                        if (values.size() == config.maxBatchSize) {                            
                             flush(stmt, tableName, values);
+                            Long endTime = System.nanoTime();
+                            timeDelay.add((endTime - startTime));
+                            startTime = 0;
                         }
                     } else {
                         if (values.size() > 0) {
                             flush(stmt, tableName, values);
+                            Long endTime = System.nanoTime();
+                            timeDelay.add(endTime - startTime);
+                            startTime = 0;
                         }
                         Thread.sleep(3);
                     }
@@ -169,17 +236,31 @@ public class TDengineProducer {
             }
             if (values.size() > 0) {
                 flush(stmt, tableName, values);
+                Long endTime = System.nanoTime();
+                timeDelay.add(endTime - startTime);
+                startTime = 0;
             }
             log.info("====producer rows: " + rows);
         } catch (SQLException e) {
             throw new RuntimeException(e);
         } finally {
             try {
+
                 stmt.close();
                 conn.close();
             } catch (SQLException e) {
             }
         }
+        String filename = String.format("/tmp/omb/producer/%s.txt",threadID.toString());
+        File file = new File(filename);
+        FileWriter writer = new FileWriter(file);
+        BufferedWriter bw = new BufferedWriter(writer);
+        for(int i=0;i<timeDelay.size();i++){
+            String line = timeDelay.get(i).toString();
+            bw.write(line);
+            bw.newLine();
+        }
+        bw.close();
     }
 
     private void flush(Statement stmt, String table, List<String> values) throws SQLException {
