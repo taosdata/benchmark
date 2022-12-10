@@ -79,6 +79,8 @@ public class TDengineBenchmarkDriver implements BenchmarkDriver {
             return;
         }
         String q = "create database if not exists " + config.database
+                + " stt_trigger " + config.stt_trigger
+                + " buffer " + config.buffer
                 + " precision 'ns'"
                 + " vgroups " + partitions
                 + " replica " + config.replica

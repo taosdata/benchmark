@@ -33,6 +33,8 @@ public class Config {
     public int maxBatchSize;
     public int varcharLen;
     public String jdbcURL;
+    public int stt_trigger;
+    public int buffer;
     public int replica;
     public boolean useStmt;
     public int walLevel;
